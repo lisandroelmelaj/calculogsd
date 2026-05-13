@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calculadora GSD — HAPS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0d0f14;
+    --surface: #141720;
+    --surface2: #1b1f2e;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.13);
+    --accent: #3d9cf5;
+    --accent2: #e05c30;
+    --text: #e8eaf0;
+    --muted: #6b7280;
+    --mono: 'Space Mono', monospace;
+    --sans: 'DM Sans', sans-serif;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-weight: 400;
+    min-height: 100vh;
+    padding: 0;
+    overflow-x: hidden;
+  }
+
+  /* grid bg */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(61,156,245,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(61,156,245,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrap {
+    position: relative;
+    z-index: 1;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+  }
+
+  header {
+    margin-bottom: 48px;
+  }
+
+  .tag {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent);
+    border: 1px solid rgba(61,156,245,0.3);
+    padding: 4px 10px;
+    border-radius: 2px;
+    margin-bottom: 16px;
+  }
+
+  h1 {
+    font-family: var(--mono);
+    font-size: clamp(22px, 4vw, 34px);
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    color: #fff;
+    margin-bottom: 10px;
+  }
+
+  h1 span { color: var(--accent); }
+
+  .subtitle {
+    font-size: 14px;
+    color: var(--muted);
+    line-height: 1.6;
+    max-width: 500px;
+  }
+
+  /* sections */
+  .section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 16px;
+  }
+
+  .section-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+
+  @media (max-width: 520px) {
+    .two-col, .three-col { grid-template-columns: 1fr; }
+  }
+
+  /* slider row */
+  .field { display: flex; flex-direction: column; gap: 8px; }
+
+  .field-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+
+  .field-label {
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 400;
+  }
+
+  .field-val {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text);
+    font-weight: 700;
+  }
+
+  input[type=range] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 3px;
+    background: var(--surface2);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid var(--bg);
+    box-shadow: 0 0 0 1px var(--accent);
+    transition: transform 0.1s;
+  }
+  input[type=range]:hover::-webkit-slider-thumb { transform: scale(1.2); }
+  input[type=range]::-moz-range-thumb {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid var(--bg);
+    cursor: pointer;
+  }
+
+  /* results */
+  .results-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  @media (max-width: 520px) {
+    .results-grid { grid-template-columns: 1fr 1fr; }
+  }
+
+  .result-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 14px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .result-card.highlight { border-color: rgba(61,156,245,0.35); }
+  .result-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .result-card.highlight::before { opacity: 1; }
+
+  .result-label {
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+    font-family: var(--mono);
+  }
+
+  .result-val {
+    font-family: var(--mono);
+    font-size: 20px;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .result-val.accent { color: var(--accent); }
+
+  .result-sub {
+    font-size: 10px;
+    color: var(--muted);
+  }
+
+  /* canvas */
+  .canvas-wrap {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+
+  canvas { display: block; width: 100%; }
+
+  .canvas-caption {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    text-align: center;
+    padding: 10px;
+    border-top: 1px solid var(--border);
+  }
+
+  /* detection badge */
+  .detection-badge {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 18px;
+    font-size: 13px;
+  }
+
+  .badge-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+
+  .badge-text { color: var(--muted); }
+  .badge-text strong { color: var(--text); font-weight: 500; }
+
+  footer {
+    margin-top: 48px;
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+  }
+
+  .animate-in {
+    opacity: 0;
+    transform: translateY(12px);
+    animation: fadeUp 0.5s ease forwards;
+  }
+  @keyframes fadeUp {
+    to { opacity: 1; transform: none; }
+  }
+  .d1 { animation-delay: 0.05s; }
+  .d2 { animation-delay: 0.12s; }
+  .d3 { animation-delay: 0.19s; }
+  .d4 { animation-delay: 0.26s; }
+  .d5 { animation-delay: 0.33s; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="animate-in d1">
+    <div class="tag">HAPS · Optical Payload</div>
+    <h1>Calculadora <span>GSD</span><br>de cámara</h1>
+    <p class="subtitle">Ground Sample Distance — cuántos metros representa cada píxel desde la estratósfera.</p>
+  </header>
+
+  <!-- Plataforma -->
+  <div class="section animate-in d2">
+    <div class="section-label">Plataforma</div>
+    <div class="field">
+      <div class="field-top">
+        <span class="field-label">Altura de vuelo</span>
+        <span class="field-val" id="lbl-alt">20.0 km</span>
+      </div>
+      <input type="range" id="sl-alt" min="1000" max="40000" step="500" value="20000">
+    </div>
+  </div>
+
+  <!-- Óptica -->
+  <div class="section animate-in d3">
+    <div class="section-label">Óptica</div>
+    <div class="two-col">
+      <div class="field">
+        <div class="field-top">
+          <span class="field-label">Distancia focal</span>
+          <span class="field-val" id="lbl-f">36 mm</span>
+        </div>
+        <input type="range" id="sl-f" min="4" max="500" step="1" value="36">
+      </div>
+      <div class="field">
+        <div class="field-top">
+          <span class="field-label">Tamaño de píxel</span>
+          <span class="field-val" id="lbl-p">12.0 µm</span>
+        </div>
+        <input type="range" id="sl-p" min="1" max="50" step="0.5" value="12">
+      </div>
+    </div>
+  </div>
+
+  <!-- Sensor -->
+  <div class="section animate-in d3">
+    <div class="section-label">Sensor</div>
+    <div class="three-col">
+      <div class="field">
+        <div class="field-top">
+          <span class="field-label">Resolución ancho</span>
+          <span class="field-val" id="lbl-w">640 px</span>
+        </div>
+        <input type="range" id="sl-w" min="320" max="8192" step="8" value="640">
+      </div>
+      <div class="field">
+        <div class="field-top">
+          <span class="field-label">Resolución alto</span>
+          <span class="field-val" id="lbl-h">512 px</span>
+        </div>
+        <input type="range" id="sl-h" min="240" max="6144" step="8" value="512">
+      </div>
+      <div class="field">
+        <div class="field-top">
+          <span class="field-label">Objeto en suelo</span>
+          <span class="field-val" id="lbl-obj">50 m</span>
+        </div>
+        <input type="range" id="sl-obj" min="1" max="500" step="1" value="50">
+      </div>
+    </div>
+  </div>
+
+  <!-- Resultados -->
+  <div class="animate-in d4">
+    <div class="results-grid">
+      <div class="result-card highlight">
+        <div class="result-label">GSD</div>
+        <div class="result-val accent" id="res-gsd">6.67 m</div>
+        <div class="result-sub" id="res-gsd-cm">667 cm/px</div>
+      </div>
+      <div class="result-card">
+        <div class="result-label">Ancho cubierto</div>
+        <div class="result-val" id="res-aw">4.27 km</div>
+        <div class="result-sub" id="res-aw-m"></div>
+      </div>
+      <div class="result-card">
+        <div class="result-label">Alto cubierto</div>
+        <div class="result-val" id="res-ah">3.41 km</div>
+        <div class="result-sub" id="res-ah-m"></div>
+      </div>
+      <div class="result-card">
+        <div class="result-label">Objeto en px</div>
+        <div class="result-val" id="res-px">7.50 px</div>
+        <div class="result-sub" id="res-px-sub"></div>
+      </div>
+    </div>
+
+    <!-- Canvas -->
+    <div class="canvas-wrap">
+      <canvas id="cv" height="220"></canvas>
+      <div class="canvas-caption" id="cap">Visualización de huella terrestre</div>
+    </div>
+
+    <!-- Detection -->
+    <div class="detection-badge">
+      <div class="badge-dot" id="dot"></div>
+      <div class="badge-text" id="det-text">—</div>
+    </div>
+  </div>
+
+  <footer class="animate-in d5">
+    GSD = (pixel_pitch × altura) / (focal × 1000) &nbsp;·&nbsp; HAPS Vision Calculator
+  </footer>
+
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const fmt = (n, d=2) => parseFloat(n.toFixed(d));
+
+function fmtDist(m) {
+  if (m >= 1000) return fmt(m/1000, 2) + ' km';
+  return fmt(m, 1) + ' m';
+}
+
+function calcular() {
+  const H   = +$('sl-alt').value;
+  const f   = +$('sl-f').value;
+  const p   = +$('sl-p').value;
+  const W   = +$('sl-w').value;
+  const Hp  = +$('sl-h').value;
+  const obj = +$('sl-obj').value;
+
+  $('lbl-alt').textContent = (H/1000).toFixed(1) + ' km';
+  $('lbl-f').textContent   = f + ' mm';
+  $('lbl-p').textContent   = p.toFixed(1) + ' µm';
+  $('lbl-w').textContent   = W + ' px';
+  $('lbl-h').textContent   = Hp + ' px';
+  $('lbl-obj').textContent = obj + ' m';
+
+  const gsd  = (p * H) / (f * 1000);
+  const aw   = gsd * W;
+  const ah   = gsd * Hp;
+  const pxObj = obj / gsd;
+
+  $('res-gsd').textContent    = gsd >= 1 ? fmt(gsd,2) + ' m' : fmt(gsd*100,1) + ' cm';
+  $('res-gsd-cm').textContent = fmt(gsd*100, 1) + ' cm/px';
+  $('res-aw').textContent     = fmtDist(aw);
+  $('res-ah').textContent     = fmtDist(ah);
+  $('res-px').textContent     = fmt(pxObj, 2) + ' px';
+  $('res-px-sub').textContent = obj + ' m en suelo';
+
+  // detection status
+  let dot = $('dot'), txt = $('det-text');
+  if (pxObj < 2) {
+    dot.style.background = '#e05c30';
+    txt.innerHTML = `<strong>No detectable</strong> — el objeto ocupa <strong>${fmt(pxObj,2)} px</strong>. Necesitás más focal o menor altura.`;
+  } else if (pxObj < 5) {
+    dot.style.background = '#f5a623';
+    txt.innerHTML = `<strong>Detección marginal</strong> — el objeto ocupa <strong>${fmt(pxObj,2)} px</strong>. Difícil de identificar con certeza.`;
+  } else if (pxObj < 20) {
+    dot.style.background = '#3d9cf5';
+    txt.innerHTML = `<strong>Detectable</strong> — el objeto ocupa <strong>${fmt(pxObj,2)} px</strong>. Suficiente para detección automática.`;
+  } else {
+    dot.style.background = '#4caf7d';
+    txt.innerHTML = `<strong>Alta resolución</strong> — el objeto ocupa <strong>${fmt(pxObj,2)} px</strong>. Excelente para clasificación y reconocimiento.`;
+  }
+
+  dibujar(aw, ah, obj, gsd);
+}
+
+function dibujar(aw, ah, objM, gsd) {
+  const canvas = $('cv');
+  const W = canvas.offsetWidth || 700;
+  canvas.width = W * (window.devicePixelRatio || 1);
+  canvas.height = 220 * (window.devicePixelRatio || 1);
+  canvas.style.width = W + 'px';
+  canvas.style.height = '220px';
+
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  ctx.scale(dpr, dpr);
+  const cW = W, cH = 220;
+
+  ctx.clearRect(0,0,cW,cH);
+  ctx.fillStyle = '#141720';
+  ctx.fillRect(0,0,cW,cH);
+
+  // subtle grid lines
+  ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x < cW; x += 30) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,cH); ctx.stroke(); }
+  for (let y = 0; y < cH; y += 30) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(cW,y); ctx.stroke(); }
+
+  const pad = 28;
+  const availW = cW - pad*2, availH = cH - pad*2;
+  const ratio = aw / ah;
+  let rw, rh;
+  if (ratio > availW/availH) { rw = availW * 0.88; rh = rw / ratio; }
+  else { rh = availH * 0.88; rw = rh * ratio; }
+  rw = Math.min(rw, availW);
+  rh = Math.min(rh, availH);
+
+  const rx = (cW - rw) / 2, ry = (cH - rh) / 2;
+
+  // FOV
+  ctx.fillStyle = 'rgba(61,156,245,0.07)';
+  ctx.strokeStyle = 'rgba(61,156,245,0.5)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.roundRect(rx, ry, rw, rh, 4); ctx.fill(); ctx.stroke();
+
+  // corner ticks
+  const tk = 10;
+  ctx.strokeStyle = 'rgba(61,156,245,0.9)';
+  ctx.lineWidth = 1.5;
+  [[rx,ry],[rx+rw,ry],[rx,ry+rh],[rx+rw,ry+rh]].forEach(([cx,cy],i) => {
+    const sx = i%2===0?1:-1, sy = i<2?1:-1;
+    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx+sx*tk,cy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx,cy+sy*tk); ctx.stroke();
+  });
+
+  // FOV label
+  ctx.fillStyle = 'rgba(61,156,245,0.7)';
+  ctx.font = '10px Space Mono, monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText('FOV', rx+6, ry+14);
+
+  // object
+  const scale = rw / aw;
+  const oW = Math.max(objM * scale, 4);
+  const oH = Math.max(objM * scale * (rh/rw) * (aw/ah), 4);
+  const ox = rx + rw/2 - oW/2;
+  const oy = ry + rh/2 - oH/2;
+
+  ctx.fillStyle = 'rgba(224,92,48,0.25)';
+  ctx.strokeStyle = '#e05c30';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.roundRect(ox, oy, oW, oH, 2); ctx.fill(); ctx.stroke();
+
+  // object label
+  ctx.fillStyle = '#e05c30';
+  ctx.font = '10px Space Mono, monospace';
+  ctx.textAlign = 'center';
+  const labelY = oy - 5 > ry + 16 ? oy - 5 : oy + oH + 13;
+  ctx.fillText('objeto', ox + oW/2, labelY);
+
+  // caption
+  $('cap').textContent = `${fmtDist(aw)} × ${fmtDist(ah)} · objeto: ${fmt(objM/gsd, 2)} px en imagen`;
+}
+
+['sl-alt','sl-f','sl-p','sl-w','sl-h','sl-obj'].forEach(id => $( id).addEventListener('input', calcular));
+window.addEventListener('resize', calcular);
+calcular();
+</script>
+</body>
+</html>
