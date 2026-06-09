@@ -6,6 +6,8 @@
 <title>Calculadora GSD — HAPS</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -33,7 +35,6 @@
     overflow-x: hidden;
   }
 
-  /* grid bg */
   body::before {
     content: '';
     position: fixed;
@@ -54,9 +55,7 @@
     padding: 48px 24px 80px;
   }
 
-  header {
-    margin-bottom: 48px;
-  }
+  header { margin-bottom: 48px; }
 
   .tag {
     display: inline-block;
@@ -80,7 +79,6 @@
     color: #fff;
     margin-bottom: 10px;
   }
-
   h1 span { color: var(--accent); }
 
   .subtitle {
@@ -90,7 +88,6 @@
     max-width: 500px;
   }
 
-  /* sections */
   .section {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -124,27 +121,14 @@
     .two-col, .three-col { grid-template-columns: 1fr; }
   }
 
-  /* slider row */
   .field { display: flex; flex-direction: column; gap: 8px; }
-
   .field-top {
     display: flex;
     justify-content: space-between;
     align-items: baseline;
   }
-
-  .field-label {
-    font-size: 12px;
-    color: var(--muted);
-    font-weight: 400;
-  }
-
-  .field-val {
-    font-family: var(--mono);
-    font-size: 13px;
-    color: var(--text);
-    font-weight: 700;
-  }
+  .field-label { font-size: 12px; color: var(--muted); font-weight: 400; }
+  .field-val { font-family: var(--mono); font-size: 13px; color: var(--text); font-weight: 700; }
 
   input[type=range] {
     -webkit-appearance: none;
@@ -174,14 +158,12 @@
     cursor: pointer;
   }
 
-  /* results */
   .results-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 12px;
     margin-bottom: 16px;
   }
-
   @media (max-width: 520px) {
     .results-grid { grid-template-columns: 1fr 1fr; }
   }
@@ -216,7 +198,6 @@
     margin-bottom: 8px;
     font-family: var(--mono);
   }
-
   .result-val {
     font-family: var(--mono);
     font-size: 20px;
@@ -226,33 +207,90 @@
     margin-bottom: 4px;
   }
   .result-val.accent { color: var(--accent); }
+  .result-sub { font-size: 10px; color: var(--muted); }
 
-  .result-sub {
-    font-size: 10px;
-    color: var(--muted);
-  }
-
-  /* canvas */
-  .canvas-wrap {
-    background: var(--surface2);
+  /* MAP */
+  .map-wrap {
     border: 1px solid var(--border);
     border-radius: 10px;
     overflow: hidden;
     margin-bottom: 16px;
+    position: relative;
   }
 
-  canvas { display: block; width: 100%; }
+  #map {
+    width: 100%;
+    height: 320px;
+    background: var(--surface2);
+  }
 
-  .canvas-caption {
+  /* override leaflet controls to match dark theme */
+  .leaflet-control-zoom a {
+    background: var(--surface2) !important;
+    color: var(--text) !important;
+    border-color: var(--border2) !important;
+  }
+  .leaflet-control-zoom a:hover {
+    background: var(--surface) !important;
+  }
+  .leaflet-control-attribution {
+    background: rgba(13,15,20,0.75) !important;
+    color: var(--muted) !important;
+    font-size: 9px !important;
+  }
+  .leaflet-control-attribution a { color: var(--muted) !important; }
+
+  .map-caption {
     font-family: var(--mono);
     font-size: 11px;
     color: var(--muted);
     text-align: center;
     padding: 10px;
     border-top: 1px solid var(--border);
+    background: var(--surface2);
   }
 
-  /* detection badge */
+  /* search bar inside map */
+  .map-search-bar {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    display: flex;
+    gap: 6px;
+    width: calc(100% - 80px);
+    max-width: 420px;
+  }
+
+  .map-search-bar input {
+    flex: 1;
+    background: rgba(13,15,20,0.88);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 7px 10px;
+    outline: none;
+    backdrop-filter: blur(6px);
+  }
+  .map-search-bar input::placeholder { color: var(--muted); }
+  .map-search-bar input:focus { border-color: var(--accent); }
+
+  .map-search-bar button {
+    background: var(--accent);
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 7px 12px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .map-search-bar button:hover { opacity: 0.85; }
+
   .detection-badge {
     display: flex;
     align-items: center;
@@ -263,14 +301,12 @@
     padding: 14px 18px;
     font-size: 13px;
   }
-
   .badge-dot {
     width: 10px; height: 10px;
     border-radius: 50%;
     flex-shrink: 0;
     transition: background 0.3s;
   }
-
   .badge-text { color: var(--muted); }
   .badge-text strong { color: var(--text); font-weight: 500; }
 
@@ -288,9 +324,7 @@
     transform: translateY(12px);
     animation: fadeUp 0.5s ease forwards;
   }
-  @keyframes fadeUp {
-    to { opacity: 1; transform: none; }
-  }
+  @keyframes fadeUp { to { opacity: 1; transform: none; } }
   .d1 { animation-delay: 0.05s; }
   .d2 { animation-delay: 0.12s; }
   .d3 { animation-delay: 0.19s; }
@@ -393,10 +427,14 @@
       </div>
     </div>
 
-    <!-- Canvas -->
-    <div class="canvas-wrap">
-      <canvas id="cv" height="220"></canvas>
-      <div class="canvas-caption" id="cap">Visualización de huella terrestre</div>
+    <!-- Mapa -->
+    <div class="map-wrap">
+      <div class="map-search-bar">
+        <input type="text" id="search-input" placeholder="Buscar lugar…" />
+        <button onclick="buscarLugar()">IR</button>
+      </div>
+      <div id="map"></div>
+      <div class="map-caption" id="cap">Visualización de huella terrestre</div>
     </div>
 
     <!-- Detection -->
@@ -421,6 +459,112 @@ function fmtDist(m) {
   return fmt(m, 1) + ' m';
 }
 
+// ── Leaflet map setup ──────────────────────────────────────────
+const map = L.map('map', {
+  center: [-32.89, -68.83],   // Mendoza, Argentina
+  zoom: 10,
+  zoomControl: true,
+  attributionControl: true
+});
+
+// Esri satellite tiles — no key required
+L.tileLayer(
+  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+  {
+    attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics',
+    maxZoom: 19
+  }
+).addTo(map);
+
+// FOV rectangle — starts empty, updated on calcular()
+let fovRect = null;
+let objMarker = null;
+
+// Convert meters offset from center lat/lng to new lat/lng
+function offsetLatLng(lat, lng, dNorth, dEast) {
+  const R = 6378137; // Earth radius in meters
+  const dLat = dNorth / R;
+  const dLng = dEast  / (R * Math.cos(lat * Math.PI / 180));
+  return [lat + dLat * 180 / Math.PI, lng + dLng * 180 / Math.PI];
+}
+
+function actualizarMapa(aw, ah, objM) {
+  const center = map.getCenter();
+  const lat = center.lat, lng = center.lng;
+
+  // FOV corners
+  const sw = offsetLatLng(lat, lng, -ah/2, -aw/2);
+  const ne = offsetLatLng(lat, lng,  ah/2,  aw/2);
+
+  if (fovRect) {
+    fovRect.setBounds([sw, ne]);
+  } else {
+    fovRect = L.rectangle([sw, ne], {
+      color: '#3d9cf5',
+      weight: 1.5,
+      opacity: 0.85,
+      fillColor: '#3d9cf5',
+      fillOpacity: 0.08,
+      dashArray: null
+    }).addTo(map);
+  }
+
+  // Fit map to show full FOV with padding
+  map.fitBounds([sw, ne], { padding: [40, 40], maxZoom: 14 });
+
+  // Object marker at center
+  if (objMarker) map.removeLayer(objMarker);
+
+  // Draw object as a small rectangle scaled to objM
+  const osw = offsetLatLng(lat, lng, -objM/2, -objM/2);
+  const one = offsetLatLng(lat, lng,  objM/2,  objM/2);
+  objMarker = L.rectangle([osw, one], {
+    color: '#e05c30',
+    weight: 1.5,
+    opacity: 0.9,
+    fillColor: '#e05c30',
+    fillOpacity: 0.25
+  }).addTo(map);
+}
+
+// ── Nominatim geocoder (OpenStreetMap, no key) ─────────────────
+async function buscarLugar() {
+  const q = $('search-input').value.trim();
+  if (!q) return;
+  const btn = document.querySelector('.map-search-bar button');
+  btn.textContent = '…';
+  btn.disabled = true;
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`,
+      { headers: { 'Accept-Language': 'es' } }
+    );
+    const data = await res.json();
+    if (data.length) {
+      map.setView([+data[0].lat, +data[0].lon], 10);
+      // Recalculate to reposition FOV on new center
+      calcular();
+    } else {
+      alert('Lugar no encontrado.');
+    }
+  } catch(e) {
+    alert('Error al buscar. Revisá la conexión.');
+  } finally {
+    btn.textContent = 'IR';
+    btn.disabled = false;
+  }
+}
+
+$('search-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') buscarLugar();
+});
+
+// Reposition FOV when user pans/moves map
+map.on('moveend', () => {
+  if (fovRect) calcular();
+});
+
+// ── Main calculation ───────────────────────────────────────────
 function calcular() {
   const H   = +$('sl-alt').value;
   const f   = +$('sl-f').value;
@@ -436,9 +580,9 @@ function calcular() {
   $('lbl-h').textContent   = Hp + ' px';
   $('lbl-obj').textContent = obj + ' m';
 
-  const gsd  = (p * H) / (f * 1000);
-  const aw   = gsd * W;
-  const ah   = gsd * Hp;
+  const gsd   = (p * H) / (f * 1000);   // meters/pixel
+  const aw    = gsd * W;                  // footprint width  [m]
+  const ah    = gsd * Hp;                 // footprint height [m]
   const pxObj = obj / gsd;
 
   $('res-gsd').textContent    = gsd >= 1 ? fmt(gsd,2) + ' m' : fmt(gsd*100,1) + ' cm';
@@ -448,8 +592,8 @@ function calcular() {
   $('res-px').textContent     = fmt(pxObj, 2) + ' px';
   $('res-px-sub').textContent = obj + ' m en suelo';
 
-  // detection status
-  let dot = $('dot'), txt = $('det-text');
+  // detection badge
+  const dot = $('dot'), txt = $('det-text');
   if (pxObj < 2) {
     dot.style.background = '#e05c30';
     txt.innerHTML = `<strong>No detectable</strong> — el objeto ocupa <strong>${fmt(pxObj,2)} px</strong>. Necesitás más focal o menor altura.`;
@@ -464,90 +608,15 @@ function calcular() {
     txt.innerHTML = `<strong>Alta resolución</strong> — el objeto ocupa <strong>${fmt(pxObj,2)} px</strong>. Excelente para clasificación y reconocimiento.`;
   }
 
-  dibujar(aw, ah, obj, gsd);
+  actualizarMapa(aw, ah, obj);
+
+  $('cap').textContent = `${fmtDist(aw)} × ${fmtDist(ah)} · objeto: ${fmt(pxObj, 2)} px en imagen`;
 }
 
-function dibujar(aw, ah, objM, gsd) {
-  const canvas = $('cv');
-  const W = canvas.offsetWidth || 700;
-  canvas.width = W * (window.devicePixelRatio || 1);
-  canvas.height = 220 * (window.devicePixelRatio || 1);
-  canvas.style.width = W + 'px';
-  canvas.style.height = '220px';
+['sl-alt','sl-f','sl-p','sl-w','sl-h','sl-obj'].forEach(id =>
+  $(id).addEventListener('input', calcular)
+);
 
-  const ctx = canvas.getContext('2d');
-  const dpr = window.devicePixelRatio || 1;
-  ctx.scale(dpr, dpr);
-  const cW = W, cH = 220;
-
-  ctx.clearRect(0,0,cW,cH);
-  ctx.fillStyle = '#141720';
-  ctx.fillRect(0,0,cW,cH);
-
-  // subtle grid lines
-  ctx.strokeStyle = 'rgba(255,255,255,0.03)';
-  ctx.lineWidth = 1;
-  for (let x = 0; x < cW; x += 30) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,cH); ctx.stroke(); }
-  for (let y = 0; y < cH; y += 30) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(cW,y); ctx.stroke(); }
-
-  const pad = 28;
-  const availW = cW - pad*2, availH = cH - pad*2;
-  const ratio = aw / ah;
-  let rw, rh;
-  if (ratio > availW/availH) { rw = availW * 0.88; rh = rw / ratio; }
-  else { rh = availH * 0.88; rw = rh * ratio; }
-  rw = Math.min(rw, availW);
-  rh = Math.min(rh, availH);
-
-  const rx = (cW - rw) / 2, ry = (cH - rh) / 2;
-
-  // FOV
-  ctx.fillStyle = 'rgba(61,156,245,0.07)';
-  ctx.strokeStyle = 'rgba(61,156,245,0.5)';
-  ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.roundRect(rx, ry, rw, rh, 4); ctx.fill(); ctx.stroke();
-
-  // corner ticks
-  const tk = 10;
-  ctx.strokeStyle = 'rgba(61,156,245,0.9)';
-  ctx.lineWidth = 1.5;
-  [[rx,ry],[rx+rw,ry],[rx,ry+rh],[rx+rw,ry+rh]].forEach(([cx,cy],i) => {
-    const sx = i%2===0?1:-1, sy = i<2?1:-1;
-    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx+sx*tk,cy); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx,cy+sy*tk); ctx.stroke();
-  });
-
-  // FOV label
-  ctx.fillStyle = 'rgba(61,156,245,0.7)';
-  ctx.font = '10px Space Mono, monospace';
-  ctx.textAlign = 'left';
-  ctx.fillText('FOV', rx+6, ry+14);
-
-  // object
-  const scale = rw / aw;
-  const oW = Math.max(objM * scale, 4);
-  const oH = Math.max(objM * scale * (rh/rw) * (aw/ah), 4);
-  const ox = rx + rw/2 - oW/2;
-  const oy = ry + rh/2 - oH/2;
-
-  ctx.fillStyle = 'rgba(224,92,48,0.25)';
-  ctx.strokeStyle = '#e05c30';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.roundRect(ox, oy, oW, oH, 2); ctx.fill(); ctx.stroke();
-
-  // object label
-  ctx.fillStyle = '#e05c30';
-  ctx.font = '10px Space Mono, monospace';
-  ctx.textAlign = 'center';
-  const labelY = oy - 5 > ry + 16 ? oy - 5 : oy + oH + 13;
-  ctx.fillText('objeto', ox + oW/2, labelY);
-
-  // caption
-  $('cap').textContent = `${fmtDist(aw)} × ${fmtDist(ah)} · objeto: ${fmt(objM/gsd, 2)} px en imagen`;
-}
-
-['sl-alt','sl-f','sl-p','sl-w','sl-h','sl-obj'].forEach(id => $( id).addEventListener('input', calcular));
-window.addEventListener('resize', calcular);
 calcular();
 </script>
 </body>
