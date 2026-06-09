@@ -250,6 +250,34 @@
     background: var(--surface2);
   }
 
+  /* legend overlay */
+  .map-legend {
+    position: absolute;
+    bottom: 52px;
+    left: 10px;
+    z-index: 1000;
+    background: rgba(13,15,20,0.82);
+    backdrop-filter: blur(6px);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    padding: 9px 11px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.3;
+    max-width: 220px;
+  }
+  .map-legend strong { color: var(--text); font-weight: 500; }
+  .legend-row { display: flex; align-items: center; gap: 8px; }
+  .legend-swatch {
+    width: 14px; height: 14px;
+    border-radius: 3px;
+    border: 1.5px solid;
+    flex-shrink: 0;
+  }
+
   /* search bar inside map */
   .map-search-bar {
     position: absolute;
@@ -432,8 +460,19 @@
       <div class="map-search-bar">
         <input type="text" id="search-input" placeholder="Buscar lugar…" />
         <button onclick="buscarLugar()">IR</button>
+        <button onclick="centrarVista()">⊡</button>
       </div>
       <div id="map"></div>
+      <div class="map-legend">
+        <div class="legend-row">
+          <span class="legend-swatch" style="border-color:#3d9cf5;background:rgba(61,156,245,0.18)"></span>
+          <span><strong>Azul</strong> — huella de la cámara (FOV)</span>
+        </div>
+        <div class="legend-row">
+          <span class="legend-swatch" style="border-color:#e05c30;background:rgba(224,92,48,0.3)"></span>
+          <span><strong>Rojo</strong> — objeto en el suelo</span>
+        </div>
+      </div>
       <div class="map-caption" id="cap">Visualización de huella terrestre</div>
     </div>
 
@@ -488,43 +527,49 @@ function offsetLatLng(lat, lng, dNorth, dEast) {
   return [lat + dLat * 180 / Math.PI, lng + dLng * 180 / Math.PI];
 }
 
+// Flag to prevent moveend handler from firing during programmatic moves
+let programmaticMove = false;
+// Latest footprint dims, so a manual pan can re-center the FOV without recompute
+let lastAw = 0, lastAh = 0, lastObj = 0;
+
+// Updates ONLY the rectangle bounds — no re-zoom, so it's instant.
 function actualizarMapa(aw, ah, objM) {
+  lastAw = aw; lastAh = ah; lastObj = objM;
   const center = map.getCenter();
   const lat = center.lat, lng = center.lng;
 
-  // FOV corners
+  // FOV rectangle
   const sw = offsetLatLng(lat, lng, -ah/2, -aw/2);
   const ne = offsetLatLng(lat, lng,  ah/2,  aw/2);
-
   if (fovRect) {
     fovRect.setBounds([sw, ne]);
   } else {
     fovRect = L.rectangle([sw, ne], {
-      color: '#3d9cf5',
-      weight: 1.5,
-      opacity: 0.85,
-      fillColor: '#3d9cf5',
-      fillOpacity: 0.08,
-      dashArray: null
+      color: '#3d9cf5', weight: 1.5, opacity: 0.85,
+      fillColor: '#3d9cf5', fillOpacity: 0.08
     }).addTo(map);
   }
 
-  // Fit map to show full FOV with padding
-  map.fitBounds([sw, ne], { padding: [40, 40], maxZoom: 14 });
-
-  // Object marker at center
-  if (objMarker) map.removeLayer(objMarker);
-
-  // Draw object as a small rectangle scaled to objM
+  // Object rectangle (reused, not recreated)
   const osw = offsetLatLng(lat, lng, -objM/2, -objM/2);
   const one = offsetLatLng(lat, lng,  objM/2,  objM/2);
-  objMarker = L.rectangle([osw, one], {
-    color: '#e05c30',
-    weight: 1.5,
-    opacity: 0.9,
-    fillColor: '#e05c30',
-    fillOpacity: 0.25
-  }).addTo(map);
+  if (objMarker) {
+    objMarker.setBounds([osw, one]);
+  } else {
+    objMarker = L.rectangle([osw, one], {
+      color: '#e05c30', weight: 1.5, opacity: 0.9,
+      fillColor: '#e05c30', fillOpacity: 0.25
+    }).addTo(map);
+  }
+}
+
+// Re-fit the view to the FOV — called only on demand (init / search / button)
+function centrarVista() {
+  if (!fovRect) return;
+  programmaticMove = true;
+  map.fitBounds(fovRect.getBounds(), { padding: [40, 40], maxZoom: 16, animate: false });
+  // release flag after the move settles
+  setTimeout(() => { programmaticMove = false; }, 50);
 }
 
 // ── Nominatim geocoder (OpenStreetMap, no key) ─────────────────
@@ -541,9 +586,13 @@ async function buscarLugar() {
     );
     const data = await res.json();
     if (data.length) {
-      map.setView([+data[0].lat, +data[0].lon], 10);
-      // Recalculate to reposition FOV on new center
-      calcular();
+      programmaticMove = true;
+      map.setView([+data[0].lat, +data[0].lon], map.getZoom());
+      setTimeout(() => {
+        programmaticMove = false;
+        actualizarMapa(lastAw, lastAh, lastObj);
+        centrarVista();
+      }, 60);
     } else {
       alert('Lugar no encontrado.');
     }
@@ -559,9 +608,10 @@ $('search-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') buscarLugar();
 });
 
-// Reposition FOV when user pans/moves map
+// Manual pan: re-center the FOV on the new map center (no full recompute, no loop)
 map.on('moveend', () => {
-  if (fovRect) calcular();
+  if (programmaticMove) return;
+  if (fovRect) actualizarMapa(lastAw, lastAh, lastObj);
 });
 
 // ── Main calculation ───────────────────────────────────────────
@@ -617,7 +667,9 @@ function calcular() {
   $(id).addEventListener('input', calcular)
 );
 
+// initial render + center the view once
 calcular();
+map.whenReady(() => setTimeout(centrarVista, 100));
 </script>
 </body>
 </html>
