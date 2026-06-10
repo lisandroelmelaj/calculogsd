@@ -347,6 +347,52 @@
     letter-spacing: 0.1em;
   }
 
+  /* toggle focal / FOV */
+  .mode-toggle {
+    display: inline-flex;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+  .mode-toggle button {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    padding: 6px 14px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    white-space: nowrap;
+  }
+  .mode-toggle button.active {
+    background: var(--accent);
+    color: #fff;
+  }
+  .mode-toggle button:not(.active):hover {
+    background: var(--border);
+    color: var(--text);
+  }
+
+  /* derived value chip shown next to slider */
+  .derived-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 3px 8px;
+    margin-top: 6px;
+  }
+  .derived-chip span { color: var(--accent); font-weight: 700; }
+
   .animate-in {
     opacity: 0;
     transform: translateY(12px);
@@ -384,14 +430,37 @@
   <!-- Óptica -->
   <div class="section animate-in d3">
     <div class="section-label">Óptica</div>
+
+    <!-- toggle -->
+    <div class="mode-toggle">
+      <button id="btn-focal" class="active" onclick="setModo('focal')">Distancia focal</button>
+      <button id="btn-fov"               onclick="setModo('fov')">FOV (°)</button>
+    </div>
+
     <div class="two-col">
+      <!-- bloque izquierdo: focal o FOV según modo -->
       <div class="field">
-        <div class="field-top">
-          <span class="field-label">Distancia focal</span>
-          <span class="field-val" id="lbl-f">36 mm</span>
+        <!-- MODO FOCAL -->
+        <div id="bloque-focal">
+          <div class="field-top">
+            <span class="field-label">Distancia focal</span>
+            <span class="field-val" id="lbl-f">36 mm</span>
+          </div>
+          <input type="range" id="sl-f" min="4" max="500" step="1" value="36">
+          <div class="derived-chip">FOV horizontal: <span id="chip-fov">—</span></div>
         </div>
-        <input type="range" id="sl-f" min="4" max="500" step="1" value="36">
+        <!-- MODO FOV -->
+        <div id="bloque-fov" style="display:none">
+          <div class="field-top">
+            <span class="field-label">FOV horizontal</span>
+            <span class="field-val" id="lbl-fov">65.0°</span>
+          </div>
+          <input type="range" id="sl-fov" min="1" max="170" step="0.5" value="65">
+          <div class="derived-chip">Focal equivalente: <span id="chip-focal">—</span></div>
+        </div>
       </div>
+
+      <!-- bloque derecho: tamaño de píxel (siempre visible) -->
       <div class="field">
         <div class="field-top">
           <span class="field-label">Tamaño de píxel</span>
@@ -614,25 +683,71 @@ map.on('moveend', () => {
   if (fovRect) actualizarMapa(lastAw, lastAh, lastObj);
 });
 
+// ── Toggle focal / FOV ────────────────────────────────────────
+let modoOptica = 'focal'; // 'focal' | 'fov'
+
+function setModo(modo) {
+  modoOptica = modo;
+  $('btn-focal').classList.toggle('active', modo === 'focal');
+  $('btn-fov').classList.toggle('active',   modo === 'fov');
+  $('bloque-focal').style.display = modo === 'focal' ? '' : 'none';
+  $('bloque-fov').style.display   = modo === 'fov'   ? '' : 'none';
+  calcular();
+}
+
+// sensor width en mm = píxeles_ancho × pixel_pitch_µm / 1000
+function sensorAnchoMm() {
+  const W = +$('sl-w').value;
+  const p = +$('sl-p').value;
+  return (W * p) / 1000;
+}
+
+// FOV → focal (en mm), dado ancho sensor en mm
+function fovAFocal(fovDeg, sensorMm) {
+  const fovRad = fovDeg * Math.PI / 180;
+  return sensorMm / (2 * Math.tan(fovRad / 2));
+}
+
+// focal → FOV horizontal (en grados)
+function focalAFov(focalMm, sensorMm) {
+  return 2 * Math.atan(sensorMm / (2 * focalMm)) * 180 / Math.PI;
+}
+
 // ── Main calculation ───────────────────────────────────────────
 function calcular() {
   const H   = +$('sl-alt').value;
-  const f   = +$('sl-f').value;
   const p   = +$('sl-p').value;
   const W   = +$('sl-w').value;
   const Hp  = +$('sl-h').value;
   const obj = +$('sl-obj').value;
 
+  // Determinar focal efectiva según modo
+  let f;
+  const sensorMm = sensorAnchoMm();
+
+  if (modoOptica === 'focal') {
+    f = +$('sl-f').value;
+    $('lbl-f').textContent = f + ' mm';
+    // mostrar FOV derivado en el chip
+    const fovDerivado = focalAFov(f, sensorMm);
+    $('chip-fov').textContent = fovDerivado.toFixed(1) + '°';
+  } else {
+    const fovDeg = +$('sl-fov').value;
+    $('lbl-fov').textContent = fovDeg.toFixed(1) + '°';
+    f = fovAFocal(fovDeg, sensorMm);
+    // mostrar focal derivada en el chip
+    $('chip-focal').textContent = f.toFixed(1) + ' mm';
+  }
+
   $('lbl-alt').textContent = (H/1000).toFixed(1) + ' km';
-  $('lbl-f').textContent   = f + ' mm';
   $('lbl-p').textContent   = p.toFixed(1) + ' µm';
   $('lbl-w').textContent   = W + ' px';
   $('lbl-h').textContent   = Hp + ' px';
   $('lbl-obj').textContent = obj + ' m';
 
-  const gsd   = (p * H) / (f * 1000);   // meters/pixel
-  const aw    = gsd * W;                  // footprint width  [m]
-  const ah    = gsd * Hp;                 // footprint height [m]
+  const gsd   = (p * H) / (f * 1000);
+  const aw    = gsd * W;
+  const ah    = gsd * Hp;
   const pxObj = obj / gsd;
 
   $('res-gsd').textContent    = gsd >= 1 ? fmt(gsd,2) + ' m' : fmt(gsd*100,1) + ' cm';
@@ -659,11 +774,10 @@ function calcular() {
   }
 
   actualizarMapa(aw, ah, obj);
-
   $('cap').textContent = `${fmtDist(aw)} × ${fmtDist(ah)} · objeto: ${fmt(pxObj, 2)} px en imagen`;
 }
 
-['sl-alt','sl-f','sl-p','sl-w','sl-h','sl-obj'].forEach(id =>
+['sl-alt','sl-f','sl-fov','sl-p','sl-w','sl-h','sl-obj'].forEach(id =>
   $(id).addEventListener('input', calcular)
 );
 
