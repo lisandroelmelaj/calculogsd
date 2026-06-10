@@ -393,6 +393,50 @@
   }
   .derived-chip span { color: var(--accent); font-weight: 700; }
 
+  /* selector formato sensor */
+  .sensor-format-wrap {
+    margin-bottom: 16px;
+  }
+  .sensor-format-label {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 8px;
+    display: block;
+  }
+  .sensor-format-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .fmt-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 5px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 5px 10px;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
+    white-space: nowrap;
+  }
+  .fmt-btn:hover { color: var(--text); border-color: rgba(61,156,245,0.4); }
+  .fmt-btn.active {
+    background: rgba(61,156,245,0.15);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .sensor-size-chip {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 10px;
+  }
+  .sensor-size-chip span { color: var(--accent); font-weight: 700; }
+
   .animate-in {
     opacity: 0;
     transform: translateY(12px);
@@ -474,6 +518,30 @@
   <!-- Sensor -->
   <div class="section animate-in d3">
     <div class="section-label">Sensor</div>
+
+    <!-- Formato de sensor -->
+    <div class="sensor-format-wrap">
+      <span class="sensor-format-label">Formato del sensor (diagonal)</span>
+      <div class="sensor-format-row" id="fmt-row">
+        <button class="fmt-btn" data-diag="4.0"  data-label='1/4"'   onclick="setFormato(this)">1/4"</button>
+        <button class="fmt-btn" data-diag="6.0"  data-label='1/3"'   onclick="setFormato(this)">1/3"</button>
+        <button class="fmt-btn" data-diag="7.66" data-label='1/2.9"' onclick="setFormato(this)">1/2.9"</button>
+        <button class="fmt-btn" data-diag="7.87" data-label='1/2.8"' onclick="setFormato(this)">1/2.8"</button>
+        <button class="fmt-btn active" data-diag="8.0"  data-label='1/2.3"' onclick="setFormato(this)">1/2.3"</button>
+        <button class="fmt-btn" data-diag="9.0"  data-label='1/2"'   onclick="setFormato(this)">1/2"</button>
+        <button class="fmt-btn" data-diag="10.67" data-label='1/1.8"' onclick="setFormato(this)">1/1.8"</button>
+        <button class="fmt-btn" data-diag="11.0" data-label='1/1.7"' onclick="setFormato(this)">1/1.7"</button>
+        <button class="fmt-btn" data-diag="13.0" data-label='1/1.3"' onclick="setFormato(this)">1/1.3"</button>
+        <button class="fmt-btn" data-diag="16.0" data-label='1"'     onclick="setFormato(this)">1"</button>
+        <button class="fmt-btn" data-diag="21.64" data-label='4/3"'  onclick="setFormato(this)">4/3"</button>
+        <button class="fmt-btn" data-diag="28.4" data-label='APS-C'  onclick="setFormato(this)">APS-C</button>
+        <button class="fmt-btn" data-diag="43.3" data-label='FF'     onclick="setFormato(this)">Full Frame</button>
+      </div>
+      <div class="sensor-size-chip">
+        Ancho sensor: <span id="chip-sensor-w">—</span> &nbsp;·&nbsp; Alto sensor: <span id="chip-sensor-h">—</span> &nbsp;·&nbsp; Diagonal: <span id="chip-sensor-d">—</span>
+      </div>
+    </div>
+
     <div class="three-col">
       <div class="field">
         <div class="field-top">
@@ -695,11 +763,34 @@ function setModo(modo) {
   calcular();
 }
 
-// sensor width en mm = píxeles_ancho × pixel_pitch_µm / 1000
+// ── Formato de sensor ─────────────────────────────────────────
+// diagonal en mm guardada del botón seleccionado
+// Sensores reales usan una proporción fija ancho:alto según el estándar
+// Para la mayoría de sensores CMOS modernos: 4:3 en sensores pequeños
+// Usamos proporción real del sensor (W_px : H_px) para calcular ancho y alto
+let sensorDiagMm = 8.0; // default 1/2.3"
+
+function setFormato(btn) {
+  document.querySelectorAll('.fmt-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  sensorDiagMm = parseFloat(btn.dataset.diag);
+  calcular();
+}
+
+// Devuelve {w, h} en mm del sensor usando la diagonal y la proporción de píxeles
+function sensorDims() {
+  const W  = +$('sl-w').value;
+  const Hp = +$('sl-h').value;
+  const asp = W / Hp; // aspect ratio real del sensor
+  // diagonal = sqrt(w² + h²) → w = diag / sqrt(1 + 1/asp²)
+  const w = sensorDiagMm / Math.sqrt(1 + 1/(asp*asp));
+  const h = w / asp;
+  return { w, h };
+}
+
+// ancho sensor en mm — usado para conversión FOV ↔ focal
 function sensorAnchoMm() {
-  const W = +$('sl-w').value;
-  const p = +$('sl-p').value;
-  return (W * p) / 1000;
+  return sensorDims().w;
 }
 
 // FOV → focal (en mm), dado ancho sensor en mm
@@ -744,6 +835,12 @@ function calcular() {
   $('lbl-w').textContent   = W + ' px';
   $('lbl-h').textContent   = Hp + ' px';
   $('lbl-obj').textContent = obj + ' m';
+
+  // Chip tamaño sensor
+  const dims = sensorDims();
+  $('chip-sensor-w').textContent = dims.w.toFixed(2) + ' mm';
+  $('chip-sensor-h').textContent = dims.h.toFixed(2) + ' mm';
+  $('chip-sensor-d').textContent = sensorDiagMm.toFixed(2) + ' mm';
 
   const gsd   = (p * H) / (f * 1000);
   const aw    = gsd * W;
