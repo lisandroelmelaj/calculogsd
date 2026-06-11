@@ -700,12 +700,11 @@ function actualizarMapa(aw, ah, objM) {
   }
 }
 
-// Re-fit the view to the FOV — called only on demand (init / search / button)
+// Re-fit the view al FOV exacto — sin padding, ocupa toda la pantalla
 function centrarVista() {
   if (!fovRect) return;
   programmaticMove = true;
-  map.fitBounds(fovRect.getBounds(), { padding: [40, 40], maxZoom: 16, animate: false });
-  // release flag after the move settles
+  map.fitBounds(fovRect.getBounds(), { padding: [0, 0], animate: false });
   setTimeout(() => { programmaticMove = false; }, 50);
 }
 
@@ -871,6 +870,11 @@ function calcular() {
   }
 
   actualizarMapa(aw, ah, obj);
+  // re-encuadra la vista para que el FOV ocupe toda la pantalla
+  programmaticMove = true;
+  if (fovRect) map.fitBounds(fovRect.getBounds(), { padding: [0, 0], animate: false });
+  setTimeout(() => { programmaticMove = false; }, 50);
+
   $('cap').textContent = `${fmtDist(aw)} × ${fmtDist(ah)} · objeto: ${fmt(pxObj, 2)} px en imagen`;
 }
 
