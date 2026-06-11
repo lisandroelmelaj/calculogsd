@@ -459,18 +459,6 @@
     <p class="subtitle">Ground Sample Distance — cuántos metros representa cada píxel desde la estratósfera.</p>
   </header>
 
-  <!-- Plataforma -->
-  <div class="section animate-in d2">
-    <div class="section-label">Plataforma</div>
-    <div class="field">
-      <div class="field-top">
-        <span class="field-label">Altura de vuelo</span>
-        <span class="field-val" id="lbl-alt">20.0 km</span>
-      </div>
-      <input type="range" id="sl-alt" min="1000" max="40000" step="500" value="20000">
-    </div>
-  </div>
-
   <!-- Óptica -->
   <div class="section animate-in d3">
     <div class="section-label">Óptica</div>
@@ -611,6 +599,18 @@
         </div>
       </div>
       <div class="map-caption" id="cap">Visualización de huella terrestre</div>
+    </div>
+
+    <!-- Plataforma -->
+    <div class="section" style="margin-bottom:16px">
+      <div class="section-label">Plataforma</div>
+      <div class="field">
+        <div class="field-top">
+          <span class="field-label">Altura de vuelo</span>
+          <span class="field-val" id="lbl-alt">20.0 km</span>
+        </div>
+        <input type="range" id="sl-alt" min="1000" max="40000" step="500" value="20000">
+      </div>
     </div>
 
     <!-- Detection -->
